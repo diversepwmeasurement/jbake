@@ -1,51 +1,61 @@
-name: Build
-
-on:
-    pull_request:
-
 jobs:
-    build:
-        name: Build
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [ ubuntu-latest, macos-latest, windows-latest ]
-        runs-on: ${{ matrix.os }}
+  build:
+    name: Build
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v2
+    - continue-on-error: true
+      name: Set up Java
+      uses: actions/setup-java@v2
+      with:
+        distribution: zulu
+        java-version: 11
+    - continue-on-error: true
+      uses: actions/cache@v2
+      with:
+        key: ${{ runner.os }}-gradle-cache-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties')
+          }}
+        path: ~/.gradle/caches
+        restore-keys: '${{ runner.os }}-gradle-
 
-        steps:
-            - uses: actions/checkout@v2
+          '
+    - continue-on-error: true
+      uses: actions/cache@v2
+      with:
+        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradlew') }}
+        path: ~/.gradle/wrapper
+        restore-keys: '${{ runner.os }}-gradlew-
 
-            - name: Set up Java
-              uses: actions/setup-java@v2
-              with:
-                  java-version: 11
-                  distribution: 'zulu'
+          '
+    - continue-on-error: true
+      if: runner.os == 'Windows'
+      name: Build-win
+      run: gradlew.bat -Dfile.encoding=UTF-8 build -S
+      shell: cmd
+    - continue-on-error: true
+      if: runner.os != 'Windows'
+      name: Build-nix
+      run: ./gradlew build -S
+    - continue-on-error: true
+      if: failure()
+      name: Upload Reports
+      uses: actions/upload-artifact@v1
+      with:
+        name: reports-${{ runner.os }}
+        path: 'jbake-core/build
 
-            - uses: actions/cache@v2
-              with:
-                  path: ~/.gradle/caches
-                  key: ${{ runner.os }}-gradle-cache-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
-                  restore-keys: |
-                      ${{ runner.os }}-gradle-
-            - uses: actions/cache@v2
-              with:
-                  path: ~/.gradle/wrapper
-                  key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradlew') }}
-                  restore-keys: |
-                      ${{ runner.os }}-gradlew-
-            - name: Build-win
-              if: runner.os == 'Windows'
-              shell: cmd
-              run: gradlew.bat -Dfile.encoding=UTF-8 build -S
-            - name: Build-nix
-              if: runner.os != 'Windows'
-              run: ./gradlew build -S
+          jbake-dist/build
 
-            - name: Upload Reports
-              uses: actions/upload-artifact@v1
-              if: failure()
-              with:
-                  name: reports-${{ runner.os }}
-                  path: |
-                      jbake-core/build
-                      jbake-dist/build
+          '
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-latest
+        - macos-latest
+        - windows-latest
+name: Build
+on:
+  repository_dispatch:
+    types: trigger-ga___build.yml
